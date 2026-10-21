@@ -16,7 +16,7 @@ concurrency:
 # Edit these values and push to prod to rebuild the base image.
 env:
   IMAGE_NAME: ghcr.io/callabledev/docker-php
-  IMAGE_TAG: 8.3.35-chainguard-r4-fpm-nginx-v3.6.1
+  IMAGE_TAG: 8.3.35-fpm-nginx-v3.6.1
   IMAGE_MINOR_TAG: 8.3-fpm-nginx-v3.6.1
   PLATFORM: linux/amd64
   PHP_VERSION: 8.3.35
@@ -24,12 +24,7 @@ env:
   NGINX_VERSION: 1.28.0-1~trixie
   # BuildKit fetches this Git ref with submodules to avoid PECL download outages.
   REDIS_SOURCE_REF: 6.2.0
-  RAPHF_SOURCE_REF: v2.0.2
-  HTTP_SOURCE_REF: v4.3.1
-  CHAINGUARD_PHP_PACKAGE_VERSION: 8.3.35-r4
-  CHAINGUARD_PHP_IMAGE: cgr.dev/hotsnr.com/php:8.3@sha256:c122eb125b3836f31a8aa32b228f6147694387d60bf8910f87884ca75c9b122e
-  CHAINGUARD_FPM_IMAGE: cgr.dev/hotsnr.com/php:8.3-fpm@sha256:123f30505ef2b7f7777ff3f0dfc886faf3f46b9267c11b20bd2b2f5ffc6f34b2
-  CHAINGUARD_DEV_IMAGE: cgr.dev/hotsnr.com/php:8.3-dev@sha256:ee43a43ca120f53289796a7eea4b53a023993fb5b6cba7be86546df66cac2135
+  PHP_EXTENSIONS: opcache pcntl pdo_mysql pdo_pgsql /usr/src/redis zip
   REPOSITORY_BUILD_VERSION: v3.6.1-callabledev
 
 jobs:
@@ -44,13 +39,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to Chainguard
-        uses: docker/login-action@v3
-        with:
-          registry: cgr.dev
-          username: ${{ secrets.CHAINGUARD_USERNAME }}
-          password: ${{ secrets.CHAINGUARD_PASSWORD }}
-
       - name: Build image
         uses: docker/build-push-action@v6
         with:
@@ -63,12 +51,7 @@ jobs:
             BASE_OS_VERSION=${{ env.BASE_OS_VERSION }}
             NGINX_VERSION=${{ env.NGINX_VERSION }}
             REDIS_SOURCE_REF=${{ env.REDIS_SOURCE_REF }}
-            RAPHF_SOURCE_REF=${{ env.RAPHF_SOURCE_REF }}
-            HTTP_SOURCE_REF=${{ env.HTTP_SOURCE_REF }}
-            CHAINGUARD_PHP_PACKAGE_VERSION=${{ env.CHAINGUARD_PHP_PACKAGE_VERSION }}
-            CHAINGUARD_PHP_IMAGE=${{ env.CHAINGUARD_PHP_IMAGE }}
-            CHAINGUARD_FPM_IMAGE=${{ env.CHAINGUARD_FPM_IMAGE }}
-            CHAINGUARD_DEV_IMAGE=${{ env.CHAINGUARD_DEV_IMAGE }}
+            DEPENDENCY_PHP_EXTENSIONS=${{ env.PHP_EXTENSIONS }}
             REPOSITORY_BUILD_VERSION=${{ env.REPOSITORY_BUILD_VERSION }}-${{ github.sha }}
           tags: |
             ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}

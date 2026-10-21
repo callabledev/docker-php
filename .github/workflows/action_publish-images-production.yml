@@ -21,7 +21,8 @@ env:
   PHP_VERSION: 8.3.25
   BASE_OS_VERSION: trixie
   NGINX_VERSION: 1.28.0-1~trixie
-  PHP_EXTENSIONS: opcache pcntl pdo_mysql pdo_pgsql redis-6.2.0 zip
+  # Fetch the pinned Redis source from GitHub to avoid PECL download outages.
+  PHP_EXTENSIONS: opcache pcntl pdo_mysql pdo_pgsql https://github.com/phpredis/phpredis/archive/refs/tags/6.2.0.tar.gz zip
   REPOSITORY_BUILD_VERSION: v3.6.1-callabledev
 
 jobs:

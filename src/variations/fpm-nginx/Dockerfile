@@ -3,6 +3,11 @@ ARG BASE_OS_VERSION='bookworm'
 ARG PHP_VERSION='8.4'
 ARG BASE_IMAGE="php:${PHP_VERSION}-fpm-${BASE_OS_VERSION}"
 
+# Git sources include submodules, unlike GitHub's generated release archives.
+FROM scratch AS redis-source
+ARG REDIS_SOURCE_REF='6.2.0'
+ADD https://github.com/phpredis/phpredis.git#${REDIS_SOURCE_REF} /redis/
+
 ##########
 # S6 Build
 ##########
@@ -175,7 +180,8 @@ COPY --from=nginx-repo-config /etc/apk/repositories /etc/apk/repositories
 COPY --from=nginx-repo-config /etc/apk/keys/nginx_signing.rsa.pub /etc/apk/keys/
 
 # install pecl extensions, dependencies, and clean up
-RUN docker-php-serversideup-dep-install-alpine "${DEPENDENCY_PACKAGES_ALPINE} nginx@nginx=${NGINX_VERSION}" && \
+RUN --mount=type=bind,from=redis-source,source=/redis,target=/usr/src/redis,rw \
+    docker-php-serversideup-dep-install-alpine "${DEPENDENCY_PACKAGES_ALPINE} nginx@nginx=${NGINX_VERSION}" && \
     docker-php-serversideup-dep-install-debian "${DEPENDENCY_PACKAGES_DEBIAN} nginx=${NGINX_VERSION}"  && \
     docker-php-serversideup-install-php-ext-installer && \
     \

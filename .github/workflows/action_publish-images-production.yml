@@ -21,8 +21,9 @@ env:
   PHP_VERSION: 8.3.25
   BASE_OS_VERSION: trixie
   NGINX_VERSION: 1.28.0-1~trixie
-  # Fetch the pinned Redis source from GitHub to avoid PECL download outages.
-  PHP_EXTENSIONS: opcache pcntl pdo_mysql pdo_pgsql https://github.com/phpredis/phpredis/archive/refs/tags/6.2.0.tar.gz zip
+  # BuildKit fetches this Git ref with submodules to avoid PECL download outages.
+  REDIS_SOURCE_REF: 6.2.0
+  PHP_EXTENSIONS: opcache pcntl pdo_mysql pdo_pgsql /usr/src/redis zip
   REPOSITORY_BUILD_VERSION: v3.6.1-callabledev
 
 jobs:
@@ -48,6 +49,7 @@ jobs:
             PHP_VERSION=${{ env.PHP_VERSION }}
             BASE_OS_VERSION=${{ env.BASE_OS_VERSION }}
             NGINX_VERSION=${{ env.NGINX_VERSION }}
+            REDIS_SOURCE_REF=${{ env.REDIS_SOURCE_REF }}
             DEPENDENCY_PHP_EXTENSIONS=${{ env.PHP_EXTENSIONS }}
             REPOSITORY_BUILD_VERSION=${{ env.REPOSITORY_BUILD_VERSION }}-${{ github.sha }}
           tags: |

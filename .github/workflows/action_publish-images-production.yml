@@ -16,7 +16,8 @@ concurrency:
 # Edit these values and push to prod to rebuild the base image.
 env:
   IMAGE_NAME: ghcr.io/callabledev/docker-php
-  IMAGE_TAG: 8.3-fpm-nginx-v3.6.1
+  IMAGE_TAG: 8.3.25-fpm-nginx-v3.6.1
+  IMAGE_MINOR_TAG: 8.3-fpm-nginx-v3.6.1
   PLATFORM: linux/amd64
   PHP_VERSION: 8.3.25
   BASE_OS_VERSION: trixie
@@ -54,6 +55,7 @@ jobs:
             REPOSITORY_BUILD_VERSION=${{ env.REPOSITORY_BUILD_VERSION }}-${{ github.sha }}
           tags: |
             ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+            ${{ env.IMAGE_NAME }}:${{ env.IMAGE_MINOR_TAG }}
             ${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
@@ -97,4 +99,5 @@ jobs:
       - name: Publish image
         run: |
           docker push "$IMAGE_NAME:$IMAGE_TAG"
+          docker push "$IMAGE_NAME:$IMAGE_MINOR_TAG"
           docker push "$IMAGE_NAME:sha-$GITHUB_SHA"

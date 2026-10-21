@@ -1,17 +1,64 @@
 # check=skip=SecretsUsedInArgOrEnv
-ARG BASE_OS_VERSION='bookworm'
-ARG PHP_VERSION='8.4'
+ARG BASE_OS_VERSION='trixie'
+ARG PHP_VERSION='8.3.35'
 ARG BASE_IMAGE="php:${PHP_VERSION}-fpm-${BASE_OS_VERSION}"
+ARG CHAINGUARD_PHP_IMAGE='cgr.dev/hotsnr.com/php:8.3@sha256:c122eb125b3836f31a8aa32b228f6147694387d60bf8910f87884ca75c9b122e'
+ARG CHAINGUARD_FPM_IMAGE='cgr.dev/hotsnr.com/php:8.3-fpm@sha256:123f30505ef2b7f7777ff3f0dfc886faf3f46b9267c11b20bd2b2f5ffc6f34b2'
+ARG CHAINGUARD_DEV_IMAGE='cgr.dev/hotsnr.com/php:8.3-dev@sha256:ee43a43ca120f53289796a7eea4b53a023993fb5b6cba7be86546df66cac2135'
+
+FROM ${CHAINGUARD_PHP_IMAGE} AS hardened-cli
+FROM ${CHAINGUARD_FPM_IMAGE} AS hardened-fpm
 
 # Git sources include submodules, unlike GitHub's generated release archives.
 FROM scratch AS redis-source
 ARG REDIS_SOURCE_REF='6.2.0'
 ADD https://github.com/phpredis/phpredis.git#${REDIS_SOURCE_REF} /redis/
 
+FROM scratch AS raphf-source
+ARG RAPHF_SOURCE_REF='v2.0.2'
+ADD https://github.com/m6w6/ext-raphf.git#${RAPHF_SOURCE_REF} /raphf/
+
+FROM scratch AS http-source
+ARG HTTP_SOURCE_REF='v4.3.1'
+ADD https://github.com/m6w6/ext-http.git#${HTTP_SOURCE_REF} /http/
+
+# Build extensions with the same headers and libraries as the hardened PHP.
+FROM ${CHAINGUARD_DEV_IMAGE} AS hardened-runtime
+USER root
+ARG CHAINGUARD_PHP_PACKAGE_VERSION='8.3.35-r4'
+RUN version="${CHAINGUARD_PHP_PACKAGE_VERSION}" && \
+    apk add --no-cache build-base autoconf bash file patchelf pax-utils curl-dev pcre2-dev zlib-dev icu-dev libidn2-dev \
+    "php-8.3-dev=$version" \
+    "php-8.3-dom=$version" "php-8.3-fileinfo=$version" \
+    "php-8.3-pcntl=$version" "php-8.3-posix=$version" \
+    "php-8.3-simplexml=$version" "php-8.3-xml=$version" \
+    "php-8.3-xmlreader=$version" "php-8.3-xmlwriter=$version" \
+    "php-8.3-opcache=$version" "php-8.3-pdo_pgsql=$version" \
+    "php-8.3-zip=$version" "php-8.3-gd=$version" "php-8.3-intl=$version"
+
+COPY --from=hardened-cli /usr/bin/php /usr/bin/php
+COPY --from=hardened-fpm /usr/bin/php-fpm /usr/bin/php-fpm
+COPY src/chainguard/assemble-runtime.sh /assemble-runtime.sh
+RUN --mount=type=bind,from=redis-source,source=/redis,target=/build/redis,rw \
+    --mount=type=bind,from=raphf-source,source=/raphf,target=/build/raphf,rw \
+    --mount=type=bind,from=http-source,source=/http,target=/build/http,rw \
+    sh /assemble-runtime.sh
+
+# Transplant PHP before the existing image setup or any downstream PHP work.
+# Its newer glibc stays private; Debian's shell, apt, Nginx and S6 keep their libc.
+FROM ${BASE_IMAGE} AS php-base
+COPY --from=hardened-runtime /out/ /
+ENV PHPRC=/usr/local/etc/php \
+    PHP_INI_SCAN_DIR=/usr/local/etc/php/conf.d
+RUN rm -f /usr/local/etc/php/conf.d/docker-php-ext-*.ini && \
+    mkdir -p /etc/php && \
+    ln -sf /usr/local/etc/php-fpm.conf /etc/php/php-fpm.conf && \
+    php -v && php-fpm -v
+
 ##########
 # S6 Build
 ##########
-FROM ${BASE_IMAGE} AS s6-build
+FROM php-base AS s6-build
 
 ARG S6_DIR='/opt/s6/'
 ARG S6_SRC_URL="https://github.com/just-containers/s6-overlay/releases/download"
@@ -25,7 +72,7 @@ RUN docker-php-serversideup-s6-install
 ####################
 # NGINX Signing Key
 ####################
-FROM php:${PHP_VERSION}-fpm-${BASE_OS_VERSION} AS nginx-repo-config
+FROM php-base AS nginx-repo-config
 
 ARG SIGNING_KEY_URL="https://nginx.org/keys/nginx_signing.key"
 ARG SIGNING_FINGERPRINT="573BFD6B3D8FBC641079A6ABABF5BD827BD9BF62"
@@ -101,10 +148,9 @@ RUN \
 ##########
 # FPM-NGINX: Main Image
 ##########
-FROM ${BASE_IMAGE}
+FROM php-base
 ARG DEPENDENCY_PACKAGES_ALPINE='fcgi gettext shadow'
 ARG DEPENDENCY_PACKAGES_DEBIAN='libfcgi-bin gettext-base procps zip'
-ARG DEPENDENCY_PHP_EXTENSIONS='opcache pcntl pdo_mysql pdo_pgsql redis zip'
 ARG REPOSITORY_BUILD_VERSION='dev'
 ARG NGINX_VERSION='1.28.0-1'
 
@@ -179,9 +225,8 @@ COPY --from=nginx-repo-config /etc/apt/preferences.d/99nginx /etc/apt/preference
 COPY --from=nginx-repo-config /etc/apk/repositories /etc/apk/repositories
 COPY --from=nginx-repo-config /etc/apk/keys/nginx_signing.rsa.pub /etc/apk/keys/
 
-# install pecl extensions, dependencies, and clean up
-RUN --mount=type=bind,from=redis-source,source=/redis,target=/usr/src/redis,rw \
-    docker-php-serversideup-dep-install-alpine "${DEPENDENCY_PACKAGES_ALPINE} nginx@nginx=${NGINX_VERSION}" && \
+# Install webserver dependencies, verify PHP extensions, and clean up.
+RUN docker-php-serversideup-dep-install-alpine "${DEPENDENCY_PACKAGES_ALPINE} nginx@nginx=${NGINX_VERSION}" && \
     docker-php-serversideup-dep-install-debian "${DEPENDENCY_PACKAGES_DEBIAN} nginx=${NGINX_VERSION}"  && \
     docker-php-serversideup-install-php-ext-installer && \
     \
@@ -200,8 +245,8 @@ RUN --mount=type=bind,from=redis-source,source=/redis,target=/usr/src/redis,rw \
     mkdir -p /var/cache/nginx/ && \
     chown -R www-data:www-data /var/cache/nginx/ && \
     \
-    # Pass each extension separately so version pins are parsed correctly.
-    install-php-extensions ${DEPENDENCY_PHP_EXTENSIONS} && \
+    # Extensions were built against the hardened runtime, before transplanting it.
+    php -r 'foreach (["redis", "http", "raphf", "gd", "intl", "zip", "pcntl", "pdo_mysql", "pdo_pgsql", "Zend OPcache"] as $ext) { if (!extension_loaded($ext)) { fwrite(STDERR, "Missing extension: $ext\n"); exit(1); } }' && \
     \
     # clear all php provided fpm configurations
     rm -rf /usr/local/etc/php-fpm.d/*.conf && \

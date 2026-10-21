@@ -16,10 +16,10 @@ concurrency:
 # Edit these values and push to prod to rebuild the base image.
 env:
   IMAGE_NAME: ghcr.io/callabledev/docker-php
-  IMAGE_TAG: 8.3.35-fpm-nginx-v3.6.1
+  IMAGE_TAG: 8.3.36-fpm-nginx-v3.6.1
   IMAGE_MINOR_TAG: 8.3-fpm-nginx-v3.6.1
   PLATFORM: linux/amd64
-  PHP_VERSION: 8.3.35
+  PHP_VERSION: 8.3.36
   BASE_OS_VERSION: trixie
   NGINX_VERSION: 1.28.0-1~trixie
   # BuildKit fetches this Git ref with submodules to avoid PECL download outages.

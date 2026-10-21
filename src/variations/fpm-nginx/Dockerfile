@@ -194,8 +194,8 @@ RUN docker-php-serversideup-dep-install-alpine "${DEPENDENCY_PACKAGES_ALPINE} ng
     mkdir -p /var/cache/nginx/ && \
     chown -R www-data:www-data /var/cache/nginx/ && \
     \
-    # Install default PHP extensions
-    install-php-extensions "${DEPENDENCY_PHP_EXTENSIONS}" && \
+    # Pass each extension separately so version pins are parsed correctly.
+    install-php-extensions ${DEPENDENCY_PHP_EXTENSIONS} && \
     \
     # clear all php provided fpm configurations
     rm -rf /usr/local/etc/php-fpm.d/*.conf && \

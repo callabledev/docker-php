@@ -16,7 +16,7 @@ concurrency:
 # Edit these values and push to chainguard-php to rebuild this variant.
 env:
   IMAGE_NAME: ghcr.io/callabledev/docker-php
-  IMAGE_TAG: 8.3.35-chainguard-r4-fpm-nginx-v3.6.1
+  IMAGE_TAG: 8.3.35-chainguard-r4-fpm-nginx-v3.6.1-icu1
   IMAGE_MINOR_TAG: 8.3-chainguard-fpm-nginx-v3.6.1
   PLATFORM: linux/amd64
   PHP_VERSION: 8.3.35

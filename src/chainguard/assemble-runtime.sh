@@ -42,6 +42,9 @@ for binary in /out/usr/local/bin/php /out/usr/local/sbin/php-fpm; do
         --force-rpath --set-rpath /opt/chainguard/usr/lib "$binary"
 done
 mkdir -p /out/usr/share/chainguard-php
+# ICU loads its locale database at runtime, outside the ELF dependency graph.
+# Preserve the package's versioned path so intl can find the matching data.
+cp -a /usr/share/icu /out/usr/share/
 cp /usr/lib/apk/db/installed /out/usr/share/chainguard-php/packages.txt
 sha256sum /usr/bin/php /usr/bin/php-fpm > /out/usr/share/chainguard-php/source-binaries.sha256
 printf '%s\n' "$version" > /out/usr/share/chainguard-php/package-version

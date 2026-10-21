@@ -53,7 +53,8 @@ ENV PHPRC=/usr/local/etc/php \
 RUN rm -f /usr/local/etc/php/conf.d/docker-php-ext-*.ini && \
     mkdir -p /etc/php && \
     ln -sf /usr/local/etc/php-fpm.conf /etc/php/php-fpm.conf && \
-    php -v && php-fpm -v
+    php -v && php-fpm -v && \
+    php -r '$formatter = new NumberFormatter("en", NumberFormatter::DECIMAL); if ($formatter->format(12345) !== "12,345") { throw new RuntimeException("ICU locale data is unavailable"); }'
 
 ##########
 # S6 Build

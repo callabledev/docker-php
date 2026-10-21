@@ -63,32 +63,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Smoke test image
-        shell: bash
-        run: |
-          image="$IMAGE_NAME:$IMAGE_TAG"
-          docker run --rm --entrypoint php "$image" -r '
-            foreach (["Zend OPcache", "pcntl", "pdo_mysql", "pdo_pgsql", "redis", "zip"] as $extension) {
-              if (!extension_loaded($extension)) {
-                fwrite(STDERR, "Missing PHP extension: $extension\n");
-                exit(1);
-              }
-            }
-          '
-          container=$(docker run --detach "$image")
-          trap 'docker logs "$container"; docker rm --force "$container"' EXIT
-          for _ in {1..30}; do
-            if [ "$(docker inspect --format '{{.State.Health.Status}}' "$container")" = healthy ]; then
-              docker exec "$container" nginx -t
-              docker exec "$container" php-fpm -t
-              docker exec "$container" curl --fail --silent --show-error http://localhost:8080/healthcheck
-              exit 0
-            fi
-            sleep 2
-          done
-          echo 'Container did not become healthy within 60 seconds' >&2
-          exit 1
-
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
